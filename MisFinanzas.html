@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>💰 Mis Finanzas</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { background: #0F1117; color: #F1F5F9; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; overscroll-behavior: none; }
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number] { -moz-appearance: textfield; }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { useState, useMemo } = React;
+const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } = Recharts;
+
+const C = {
+  bg: "#0F1117", card: "#1A1D27", border: "#2A2D3A",
+  income: "#22C55E", expense: "#EF4444", saving: "#3B82F6",
+  text: "#F1F5F9", muted: "#94A3B8", accent: "#A78BFA",
+};
+
+const CATS = [
+  ["🏠","Vivienda"],["🍽️","Comida"],["🚗","Transporte"],["⚡","Servicios"],
+  ["🏥","Salud"],["🎭","Ocio"],["👕","Ropa"],["🔄","Otros"]
+];
+
+const PIE_C = ["#A78BFA","#3B82F6","#22C55E","#F59E0B","#EF4444","#EC4899","#14B8A6","#F97316"];
+
+const fmt = n => new Intl.NumberFormat("es-AR",{style:"currency",currency:"ARS",maximumFractionDigits:0}).format(n||0);
+
+const s = (obj) => Object.entries(obj).map(([k,v])=>`${k.replace(/([A-Z])/g,'-$1').toLowerCase()}:${v}`).join(';');
+
+function Input({value, onChange, placeholder}) {
+  return React.createElement('input', {
+    type: 'number', inputMode: 'decimal', value, placeholder: placeholder||'0',
+    onChange: e => onChange(e.target.value),
+    style: { background:'#0F1117', border:`1px solid ${C.border}`, borderRadius:8,
+      color:C.text, fontSize:15, padding:'9px 12px', width:'100%', outline:'none' }
+  });
+}
+
+function Card({children, bg, borderColor}) {
+  return React.createElement('div', {
+    style: { background: bg||C.card, border:`1px solid ${borderColor||C.border}`,
+      borderRadius:16, padding:16, marginBottom:12 }
+  }, children);
+}
+
+function Title({icon, label, color}) {
+  return React.createElement('div', {style:{display:'flex',alignItems:'center',gap:8,marginBottom:12}},
+    React.createElement('span', {style:{fontSize:18}}, icon),
+    React.createElement('span', {style:{fontWeight:700,fontSize:15,color:color||C.text}}, label)
+  );
+}
+
+function App() {
+  const [tab, setTab] = useState('dashboard');
+  const [salario, setSalario] = useState('');
+  const [freelance, setFreelance] = useState('');
+  const [otrosIng, setOtrosIng] = useState('');
+  const [gastos, setGastos] = useState(CATS.map(()=>''));
+  const [meta, setMeta] = useState('');
+  const [acum, setAcum] = useState('');
+
+  const totalIng = useMemo(()=>[salario,freelance,otrosIng].reduce((s,v)=>s+(parseFloat(v)||0),0),[salario,freelance,otrosIng]);
+  const totalGas = useMemo(()=>gastos.reduce((s,v)=>s+(parseFloat(v)||0),0),[gastos]);
+  const balance = totalIng - totalGas;
+  const ahorroMes = Math.max(0, balance);
+  const metaN = parseFloat(meta)||0;
+  const acumN = parseFloat(acum)||0;
+  const progreso = metaN > 0 ? Math.min(1,(acumN+ahorroMes)/metaN) : 0;
+
+  const pieData = CATS.map(([icon,name],i)=>({name:`${icon} ${name}`,value:parseFloat(gastos[i])||0})).filter(d=>d.value>0);
+  const barData = [
+    {name:'Ingresos',valor:totalIng,fill:C.income},
+    {name:'Gastos',valor:totalGas,fill:C.expense},
+    {name:'Ahorro',valor:ahorroMes,fill:C.saving},
+  ];
+
+  const tabs = [
+    {id:'dashboard',icon:'📊',label:'Resumen'},
+    {id:'ingresos',icon:'💚',label:'Ingresos'},
+    {id:'gastos',icon:'🔴',label:'Gastos'},
+    {id:'ahorro',icon:'💙',label:'Ahorro'},
+  ];
+
+  const tooltipStyle = {background:C.card, border:`1px solid ${C.border}`, borderRadius:8, color:C.text, fontSize:12};
+
+  // DASHBOARD
+  const dashboard = tab==='dashboard' && React.createElement(React.Fragment, null,
+    React.createElement(Card, {bg: balance>=0?'#0D2818':'#2A0A0A', borderColor: balance>=0?'#22C55E33':'#EF444433'},
+      React.createElement('div', {style:{textAlign:'center'}},
+        React.createElement('div', {style:{color:C.muted,fontSize:11,textTransform:'uppercase',letterSpacing:1}}, 'Balance del mes'),
+        React.createElement('div', {style:{fontSize:42,fontWeight:900,color:balance>=0?C.income:C.expense,letterSpacing:-2,lineHeight:1.1,marginTop:4}}, fmt(balance)),
+        React.createElement('div', {style:{color:C.muted,fontSize:12,marginTop:4}}, balance>=0?'✅ Estás en positivo':'⚠️ Gastos mayores a ingresos')
+      )
+    ),
+    React.createElement(Card, null,
+      React.createElement('div', {style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}},
+        ...[['Ingresos',totalIng,C.income],['Gastos',totalGas,C.expense],['Ahorro',ahorroMes,C.saving]].map(([l,v,col])=>
+          React.createElement('div', {key:l,style:{textAlign:'center'}},
+            React.createElement('div', {style:{color:C.muted,fontSize:10,textTransform:'uppercase',letterSpacing:1,marginBottom:2}}, l),
+            React.createElement('div', {style:{color:col,fontSize:18,fontWeight:800,letterSpacing:-0.5}}, fmt(v))
+          )
+        )
+      )
+    ),
+    React.createElement(Card, null,
+      React.createElement(Title, {icon:'📈', label:'Comparativa'}),
+      React.createElement(ResponsiveContainer, {width:'100%',height:150},
+        React.createElement(BarChart, {data:barData,barSize:38},
+          React.createElement(XAxis, {dataKey:'name',tick:{fill:C.muted,fontSize:11},axisLine:false,tickLine:false}),
+          React.createElement(YAxis, {hide:true}),
+          React.createElement(Tooltip, {contentStyle:tooltipStyle,formatter:v=>[fmt(v),''],labelStyle:{display:'none'}}),
+          React.createElement(Bar, {dataKey:'valor',radius:[6,6,0,0]},
+            barData.map((d,i)=>React.createElement(Cell,{key:i,fill:d.fill}))
+          )
+        )
+      )
+    ),
+    pieData.length>0 && React.createElement(Card, null,
+      React.createElement(Title, {icon:'🍕', label:'Distribución de gastos'}),
+      React.createElement(ResponsiveContainer, {width:'100%',height:200},
+        React.createElement(PieChart, null,
+          React.createElement(Pie, {data:pieData,dataKey:'value',cx:'50%',cy:'50%',outerRadius:70,innerRadius:35},
+            pieData.map((_,i)=>React.createElement(Cell,{key:i,fill:PIE_C[i%PIE_C.length]}))
+          ),
+          React.createElement(Tooltip, {contentStyle:tooltipStyle,formatter:v=>[fmt(v),''] }),
+          React.createElement(Legend, {iconSize:8,iconType:'circle',wrapperStyle:{fontSize:10,color:C.muted}})
+        )
+      )
+    ),
+    metaN>0 && React.createElement(Card, null,
+      React.createElement(Title, {icon:'🎯', label:'Meta de ahorro', color:C.saving}),
+      React.createElement('div', {style:{display:'flex',justifyContent:'space-between',fontSize:12,color:C.muted,marginBottom:8}},
+        React.createElement('span', null, fmt(acumN+ahorroMes)+' acumulado'),
+        React.createElement('span', null, 'Meta: '+fmt(metaN))
+      ),
+      React.createElement('div', {style:{background:'#0F1117',borderRadius:100,height:12,overflow:'hidden'}},
+        React.createElement('div', {style:{width:`${progreso*100}%`,height:'100%',background:`linear-gradient(90deg,${C.saving},${C.accent})`,borderRadius:100,transition:'width 0.5s ease'}})
+      ),
+      React.createElement('div', {style:{textAlign:'right',color:C.accent,fontSize:12,fontWeight:700,marginTop:6}}, Math.round(progreso*100)+'%')
+    ),
+    pieData.length===0 && totalIng===0 && React.createElement('div', {style:{textAlign:'center',color:C.muted,fontSize:13,paddingTop:24}},
+      React.createElement('div', {style:{fontSize:40,marginBottom:8}}, '👆'),
+      'Completá tus datos en las pestañas de abajo'
+    )
+  );
+
+  // INGRESOS
+  const ingresos = tab==='ingresos' && React.createElement(React.Fragment, null,
+    React.createElement(Card, null,
+      React.createElement(Title, {icon:'💚', label:'Fuentes de ingreso', color:C.income}),
+      ...[['Salario / Sueldo',salario,setSalario],['Freelance / Extra',freelance,setFreelance],['Otros ingresos',otrosIng,setOtrosIng]].map(([l,v,set])=>
+        React.createElement('div', {key:l,style:{marginBottom:12}},
+          React.createElement('div', {style:{color:C.muted,fontSize:12,marginBottom:4}}, l),
+          React.createElement(Input, {value:v,onChange:set,placeholder:'$ 0'})
+        )
+      ),
+      React.createElement('div', {style:{marginTop:4,padding:'12px 16px',background:'#0D2818',borderRadius:10,border:`1px solid ${C.income}44`,display:'flex',justifyContent:'space-between',alignItems:'center'}},
+        React.createElement('span', {style:{color:C.muted,fontSize:13}}, 'Total ingresos'),
+        React.createElement('span', {style:{color:C.income,fontWeight:800,fontSize:20}}, fmt(totalIng))
+      )
+    ),
+    React.createElement(Card, null,
+      React.createElement(Title, {icon:'📊', label:'Composición'}),
+      React.createElement(ResponsiveContainer, {width:'100%',height:150},
+        React.createElement(BarChart, {data:[{name:'Salario',valor:parseFloat(salario)||0},{name:'Freelance',valor:parseFloat(freelance)||0},{name:'Otros',valor:parseFloat(otrosIng)||0}],barSize:35},
+          React.createElement(XAxis, {dataKey:'name',tick:{fill:C.muted,fontSize:11},axisLine:false,tickLine:false}),
+          React.createElement(YAxis, {hide:true}),
+          React.createElement(Tooltip, {contentStyle:tooltipStyle,formatter:v=>[fmt(v),''],labelStyle:{color:C.muted}}),
+          React.createElement(Bar, {dataKey:'valor',fill:C.income,radius:[6,6,0,0]})
+        )
+      )
+    )
+  );
+
+  // GASTOS
+  const gastosTab = tab==='gastos' && React.createElement(React.Fragment, null,
+    React.createElement(Card, null,
+      React.createElement(Title, {icon:'🔴', label:'Gastos por categoría', color:C.expense}),
+      ...CATS.map(([icon,name],i)=>
+        React.createElement('div', {key:name,style:{marginBottom:12}},
+          React.createElement('div', {style:{color:C.muted,fontSize:12,marginBottom:4}}, `${icon} ${name}`),
+          React.createElement(Input, {value:gastos[i],onChange:v=>{const n=[...gastos];n[i]=v;setGastos(n);},placeholder:'$ 0'})
+        )
+      ),
+      React.createElement('div', {style:{marginTop:4,padding:'12px 16px',background:'#2A0A0A',borderRadius:10,border:`1px solid ${C.expense}44`,display:'flex',justifyContent:'space-between',alignItems:'center'}},
+        React.createElement('span', {style:{color:C.muted,fontSize:13}}, 'Total gastos'),
+        React.createElement('span', {style:{color:C.expense,fontWeight:800,fontSize:20}}, fmt(totalGas))
+      )
+    ),
+    pieData.length>0 && React.createElement(Card, null,
+      React.createElement(Title, {icon:'🍕', label:'Distribución'}),
+      React.createElement(ResponsiveContainer, {width:'100%',height:200},
+        React.createElement(PieChart, null,
+          React.createElement(Pie, {data:pieData,dataKey:'value',cx:'50%',cy:'50%',outerRadius:70,innerRadius:35},
+            pieData.map((_,i)=>React.createElement(Cell,{key:i,fill:PIE_C[i%PIE_C.length]}))
+          ),
+          React.createElement(Tooltip, {contentStyle:tooltipStyle,formatter:v=>[fmt(v),''] }),
+          React.createElement(Legend, {iconSize:8,iconType:'circle',wrapperStyle:{fontSize:10,color:C.muted}})
+        )
+      )
+    )
+  );
+
+  // AHORRO
+  const ahorroTab = tab==='ahorro' && React.createElement(React.Fragment, null,
+    React.createElement(Card, null,
+      React.createElement(Title, {icon:'💙', label:'Meta de ahorro', color:C.saving}),
+      React.createElement('div', {style:{marginBottom:12}},
+        React.createElement('div', {style:{color:C.muted,fontSize:12,marginBottom:4}}, '🎯 Meta total'),
+        React.createElement(Input, {value:meta,onChange:setMeta,placeholder:'Ej: 500000'})
+      ),
+      React.createElement('div', {style:{marginBottom:12}},
+        React.createElement('div', {style:{color:C.muted,fontSize:12,marginBottom:4}}, '💰 Ya tengo ahorrado'),
+        React.createElement(Input, {value:acum,onChange:setAcum,placeholder:'$ 0'})
+      ),
+      React.createElement('div', {style:{padding:'12px 16px',background:'#0A1628',borderRadius:10,border:`1px solid ${C.saving}44`}},
+        ...[['Ahorro este mes',fmt(ahorroMes),C.income],['Total acumulado',fmt(acumN+ahorroMes),C.saving],metaN>0?['Falta para la meta',fmt(Math.max(0,metaN-acumN-ahorroMes)),C.expense]:null].filter(Boolean).map(([l,v,col])=>
+          React.createElement('div', {key:l,style:{display:'flex',justifyContent:'space-between',marginBottom:6}},
+            React.createElement('span', {style:{color:C.muted,fontSize:12}}, l),
+            React.createElement('span', {style:{color:col,fontWeight:700}}, v)
+          )
+        )
+      )
+    ),
+    metaN>0 && React.createElement(Card, null,
+      React.createElement(Title, {icon:'🎯', label:'Progreso hacia tu meta', color:C.accent}),
+      React.createElement('div', {style:{textAlign:'center',marginBottom:16}},
+        React.createElement('div', {style:{fontSize:48,fontWeight:900,color:progreso>=1?C.income:C.accent,letterSpacing:-2}}, Math.round(progreso*100)+'%'),
+        React.createElement('div', {style:{color:C.muted,fontSize:12}}, progreso>=1?'🎉 ¡Meta alcanzada!':'Faltan '+fmt(Math.max(0,metaN-acumN-ahorroMes)))
+      ),
+      React.createElement('div', {style:{background:'#0F1117',borderRadius:100,height:16,overflow:'hidden'}},
+        React.createElement('div', {style:{width:`${progreso*100}%`,height:'100%',background:progreso>=1?`linear-gradient(90deg,${C.income},#86EFAC)`:`linear-gradient(90deg,${C.saving},${C.accent})`,borderRadius:100,transition:'width 0.5s ease'}})
+      )
+    ),
+    React.createElement(Card, null,
+      React.createElement(Title, {icon:'📊', label:'Ingresos vs Gastos vs Ahorro'}),
+      React.createElement(ResponsiveContainer, {width:'100%',height:150},
+        React.createElement(BarChart, {data:barData,barSize:38},
+          React.createElement(XAxis, {dataKey:'name',tick:{fill:C.muted,fontSize:11},axisLine:false,tickLine:false}),
+          React.createElement(YAxis, {hide:true}),
+          React.createElement(Tooltip, {contentStyle:tooltipStyle,formatter:v=>[fmt(v),''],labelStyle:{display:'none'}}),
+          React.createElement(Bar, {dataKey:'valor',radius:[6,6,0,0]},
+            barData.map((d,i)=>React.createElement(Cell,{key:i,fill:d.fill}))
+          )
+        )
+      )
+    )
+  );
+
+  return React.createElement('div', {style:{background:C.bg,minHeight:'100vh',maxWidth:430,margin:'0 auto',paddingBottom:85}},
+    // Header
+    React.createElement('div', {style:{padding:'20px 16px 12px',borderBottom:`1px solid ${C.border}`,position:'sticky',top:0,background:C.bg,zIndex:10}},
+      React.createElement('div', {style:{fontSize:11,color:C.muted,textTransform:'uppercase',letterSpacing:2}}, 'MIS FINANZAS'),
+      React.createElement('div', {style:{fontSize:22,fontWeight:800,letterSpacing:-0.5}}, 'Panel Personal 💰')
+    ),
+    // Content
+    React.createElement('div', {style:{padding:'12px 12px 0'}},
+      dashboard, ingresos, gastosTab, ahorroTab
+    ),
+    // Bottom nav
+    React.createElement('div', {style:{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:430,background:C.card,borderTop:`1px solid ${C.border}`,display:'grid',gridTemplateColumns:'repeat(4,1fr)',padding:'8px 0 24px',zIndex:20}},
+      tabs.map(t=>
+        React.createElement('button', {key:t.id,onClick:()=>setTab(t.id),style:{background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3,padding:'4px 0'}},
+          React.createElement('span', {style:{fontSize:20}}, t.icon),
+          React.createElement('span', {style:{fontSize:10,fontWeight:tab===t.id?700:400,color:tab===t.id?C.accent:C.muted}}, t.label),
+          tab===t.id && React.createElement('div', {style:{width:4,height:4,borderRadius:'50%',background:C.accent}})
+        )
+      )
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
